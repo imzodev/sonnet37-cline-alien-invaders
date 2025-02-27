@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { saveScore } from '@/lib/supabase';
 
@@ -27,20 +27,23 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localUserName, setLocalUserName] = useState(userName);
+  const autoSaveAttemptedRef = useRef(false);
 
-  // Update localUserName when userName prop changes
   useEffect(() => {
     if (userName) {
       setLocalUserName(userName);
     }
   }, [userName]);
 
-  // Auto-save score if username is already provided
   useEffect(() => {
+    if (autoSaveAttemptedRef.current) {
+      return;
+    }
+
     const autoSaveScore = async () => {
-      // Only auto-save if we have a username and haven't saved yet
       if (userName && !saved && !isSaving) {
         try {
+          autoSaveAttemptedRef.current = true;
           console.log(`Auto-saving score for ${userName}: ${score}`);
           setIsSaving(true);
           const result = await saveScore(userName, score, difficulty);
@@ -48,21 +51,18 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           console.log(`Score auto-save result:`, result);
         } catch (err) {
           console.error('Error auto-saving score:', err);
-          // Don't show error for auto-save attempts
         } finally {
           setIsSaving(false);
         }
       }
     };
 
-    // Only run auto-save once when the component mounts
-    if (userName && !saved && !isSaving) {
+    if (userName && !saved && !isSaving && userName === localUserName) {
       autoSaveScore();
     }
-  }, [userName, score, difficulty, saved, isSaving]);
+  }, []);
 
   const handleSaveScore = async () => {
-    // Prevent saving if already saved or in progress
     if (saved || isSaving) {
       return;
     }
@@ -74,6 +74,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 
     try {
       setIsSaving(true);
+      autoSaveAttemptedRef.current = true;
       const result = await saveScore(localUserName, score, difficulty);
       setSaved(true);
       if (setUserName) {
@@ -88,20 +89,16 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
     }
   };
 
-  // Handle restart with explicit console log
   const handleRestart = () => {
     console.log('Play Again button clicked');
-    // Call the restart function directly
     onRestart();
   };
 
-  // Handle view leaderboard with explicit console log
   const handleViewLeaderboard = () => {
     console.log('View Leaderboard button clicked');
     onShowLeaderboard();
   };
 
-  // Handle main menu with explicit console log
   const handleMainMenu = () => {
     console.log('Main Menu button clicked');
     onMainMenu();
