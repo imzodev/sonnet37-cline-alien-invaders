@@ -8,16 +8,20 @@ interface LeaderboardProps {
   onClose: () => void;
 }
 
+// Difficulty levels for tabs
+const DIFFICULTY_LEVELS = ['easy', 'normal', 'hard'];
+
 const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
   const [scores, setScores] = useState<Score[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('normal'); // Default to normal difficulty
 
   useEffect(() => {
     const fetchScores = async () => {
       try {
         setLoading(true);
-        const topScores = await getTopScores();
+        const topScores = await getTopScores(10, activeTab); // Pass the active difficulty
         setScores(topScores);
       } catch (err) {
         console.error('Error fetching scores:', err);
@@ -28,7 +32,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     };
 
     fetchScores();
-  }, []);
+  }, [activeTab]); // Re-fetch when tab changes
 
   return (
     <motion.div
@@ -56,6 +60,23 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
           </button>
         </div>
 
+        {/* Difficulty tabs */}
+        <div className="flex mb-4 border-b border-gray-700">
+          {DIFFICULTY_LEVELS.map((difficulty) => (
+            <button
+              key={difficulty}
+              className={`px-4 py-2 text-sm font-medium capitalize ${
+                activeTab === difficulty
+                  ? 'text-blue-500 border-b-2 border-blue-500'
+                  : 'text-gray-400 hover:text-gray-300'
+              }`}
+              onClick={() => setActiveTab(difficulty)}
+            >
+              {difficulty}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <div className="text-center py-8">
             <div className="inline-block w-8 h-8 border-4 border-t-blue-500 border-r-transparent border-b-transparent border-l-transparent rounded-full animate-spin"></div>
@@ -65,7 +86,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
           <div className="text-center py-8 text-red-500">{error}</div>
         ) : scores.length === 0 ? (
           <div className="text-center py-8 text-gray-400">
-            No scores yet. Be the first to play!
+            No scores yet for {activeTab} difficulty. Be the first to play!
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg">
