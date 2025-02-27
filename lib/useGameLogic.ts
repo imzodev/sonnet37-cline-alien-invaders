@@ -87,7 +87,21 @@ export function useGameLogic() {
   // Handle keyboard input
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      keysPressed.current.add(e.key.toLowerCase());
+      const key = e.key.toLowerCase();
+      
+      // For spacebar, we want to handle repeat events to enable rapid fire
+      if (key === ' ') {
+        // If it's a repeat event, we still want to add it to enable rapid fire
+        keysPressed.current.add(key);
+        
+        // Prevent default behavior (scrolling) when pressing space
+        e.preventDefault();
+      } else {
+        // For other keys, only add if it's not already pressed
+        if (!keysPressed.current.has(key)) {
+          keysPressed.current.add(key);
+        }
+      }
     };
     
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -189,6 +203,9 @@ export function useGameLogic() {
       // Check for player shooting
       if (keysPressed.current.has(' ')) {
         playerShoot(currentTime);
+        // Temporarily remove the spacebar key to allow for rapid fire when pressing quickly
+        // It will be re-added on the next keydown event
+        keysPressed.current.delete(' ');
       }
       
       // Check for defense selection via number keys
