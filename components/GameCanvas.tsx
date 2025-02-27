@@ -67,10 +67,21 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   return (
     <div 
       ref={canvasRef}
-      className="relative bg-black overflow-hidden"
-      style={{ width: GAME_WIDTH, height: GAME_HEIGHT }}
+      className="relative overflow-hidden"
+      style={{ 
+        width: GAME_WIDTH, 
+        height: GAME_HEIGHT,
+        background: 'linear-gradient(to bottom, #000022, #000066)',
+        position: 'relative',
+        boxShadow: 'inset 0 0 50px rgba(0, 0, 255, 0.5)',
+      }}
       onClick={handleClick}
     >
+      {/* Stars background */}
+      <div className="stars-small"></div>
+      <div className="stars-medium"></div>
+      <div className="stars-large"></div>
+      
       {/* Lane indicators */}
       {Array.from({ length: LANE_COUNT }).map((_, index) => (
         <div
