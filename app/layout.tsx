@@ -17,6 +17,8 @@ export const metadata: Metadata = {
   description: "A fusion game combining Space Invaders and Plants vs. Zombies mechanics",
 };
 
+import { Analytics } from "@vercel/analytics/react"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,6 +30,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
+        <Analytics />
       </body>
     </html>
   );
