@@ -34,6 +34,20 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
     fetchScores();
   }, [activeTab]); // Re-fetch when tab changes
 
+  // Function to render rank with emojis for top 3
+  const renderRank = (index: number) => {
+    switch (index) {
+      case 0:
+        return <span role="img" aria-label="Gold Medal">🥇</span>;
+      case 1:
+        return <span role="img" aria-label="Silver Medal">🥈</span>;
+      case 2:
+        return <span role="img" aria-label="Bronze Medal">🥉</span>;
+      default:
+        return index + 1;
+    }
+  };
+
   return (
     <motion.div
       className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
@@ -109,7 +123,7 @@ const Leaderboard: React.FC<LeaderboardProps> = ({ onClose }) => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <td className="px-4 py-3 text-gray-300">{index + 1}</td>
+                    <td className="px-4 py-3 text-gray-300">{renderRank(index)}</td>
                     <td className="px-4 py-3 text-white font-medium">
                       {score.user_name}
                     </td>
