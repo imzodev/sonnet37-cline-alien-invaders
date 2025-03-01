@@ -89,6 +89,14 @@ export function useGameLogic() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toLowerCase();
       
+      // Pause/unpause game with 'p' key
+      if (key === 'p' && !gameState.gameOver && !waveCompleted) {
+        // Only handle the key press once (on key down, not on repeat)
+        if (!keysPressed.current.has(key)) {
+          pauseGame();
+        }
+      }
+      
       // For spacebar, we want to handle repeat events to enable rapid fire
       if (key === ' ') {
         // If it's a repeat event, we still want to add it to enable rapid fire
