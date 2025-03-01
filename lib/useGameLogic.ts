@@ -796,14 +796,13 @@ export function useGameLogic() {
               newDefenses[collisionDefenseIndex] = { ...newDefenses[collisionDefenseIndex], active: false };
             }
             
-            // Update enemy's last attack time
-            enemy = { ...enemy, lastAttackTime: currentTime };
+            // Update enemy's last attack time and push updated enemy
+            const updatedEnemy = { ...enemy, lastAttackTime: currentTime };
+            newEnemies.push({ ...updatedEnemy, y: collisionY, x: laneCenter, lastAttackTime: updatedEnemy.lastAttackTime });
           } else {
             console.log(`Enemy on cooldown, time since last attack: ${currentTime - (enemy.lastAttackTime || 0)}ms`);
+            newEnemies.push({ ...enemy, y: collisionY, x: laneCenter, lastAttackTime: enemy.lastAttackTime });
           }
-          
-          // Add the updated enemy with the collision position to newEnemies
-          newEnemies.push({ ...enemy, y: collisionY, x: laneCenter, lastAttackTime: enemy.lastAttackTime });
           continue;
         }
         
