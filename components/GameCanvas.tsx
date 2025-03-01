@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   GameState, 
@@ -54,29 +54,64 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   
+  
+  // Use a ref to track the container width for responsive scaling
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  
+  // Update scale when window resizes
+  useEffect(() => {
+    const updateScale = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.clientWidth;
+        // Calculate the scale ratio based on container width vs game width
+        const newScale = Math.min(1, containerWidth / GAME_WIDTH);
+        setScale(newScale);
+      }
+    };
+    
+    // Initial scale calculation
+    updateScale();
+    
+    // Add resize listener
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
+  
+  // Adjust click coordinates based on scale
   const handleClick = (e: React.MouseEvent) => {
     if (!canvasRef.current) return;
     
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    // Adjust coordinates based on scale
+    const x = (e.clientX - rect.left) / scale;
+    const y = (e.clientY - rect.top) / scale;
     
     onCanvasClick(x, y);
   };
   
   return (
     <div 
-      ref={canvasRef}
-      className="relative overflow-hidden"
-      style={{ 
-        width: GAME_WIDTH, 
-        height: GAME_HEIGHT,
-        background: 'linear-gradient(to bottom, #000022, #000066)',
-        position: 'relative',
-        boxShadow: 'inset 0 0 50px rgba(0, 0, 255, 0.5)',
+      ref={containerRef}
+      className="relative overflow-hidden w-full"
+      style={{
+        height: `${GAME_HEIGHT * scale}px`,
       }}
-      onClick={handleClick}
     >
+      <div 
+        ref={canvasRef}
+        className="relative overflow-hidden origin-top-left"
+        style={{ 
+          width: GAME_WIDTH, 
+          height: GAME_HEIGHT,
+          background: 'linear-gradient(to bottom, #000022, #000066)',
+          position: 'relative',
+          boxShadow: 'inset 0 0 50px rgba(0, 0, 255, 0.5)',
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+        }}
+        onClick={handleClick}
+      >
       {/* Stars background */}
       <div className="stars-small"></div>
       <div className="stars-medium"></div>
@@ -332,6 +367,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           }}
         />
       )}
+      </div>
     </div>
   );
 };
