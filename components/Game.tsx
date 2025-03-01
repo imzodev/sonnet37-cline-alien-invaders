@@ -327,7 +327,8 @@ const Game: React.FC = () => {
                   </div>
                   <div className="flex items-center">
                     <span className="bg-gray-700 px-2 py-1 rounded mr-2 font-mono">R</span>: Repair | 
-                    <span className="bg-gray-700 px-2 py-1 rounded mx-2 font-mono">U</span>: Upgrade
+                    <span className="bg-gray-700 px-2 py-1 rounded mx-2 font-mono">U</span>: Upgrade |
+                    <span className="bg-gray-700 px-2 py-1 rounded ml-2 font-mono">P</span>: Pause
                   </div>
                 </div>
               </div>
