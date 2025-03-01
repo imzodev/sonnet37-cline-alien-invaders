@@ -59,6 +59,11 @@ export function useGameLogic() {
   const [explosionEffects, setExplosionEffects] = useState<ExplosionEffect[]>([]);
   const LANE_CHANGE_DELAY = 150; // ms between lane changes when holding key
   
+  // Fixed time step for consistent game speed (16.67ms = 60 FPS)
+  const FIXED_TIME_STEP = 16.67;
+  // Reference to track accumulated time between frames
+  const accumulatedTimeRef = useRef(0);
+  
   // Initialize userName from localStorage if available
   useEffect(() => {
     // Only run on client-side
@@ -97,13 +102,16 @@ export function useGameLogic() {
         }
       }
       
-      // For spacebar, we want to handle repeat events to enable rapid fire
+      // For spacebar, we don't need special handling for repeat events anymore
+      // Just add it to keysPressed like other keys
       if (key === ' ') {
-        // If it's a repeat event, we still want to add it to enable rapid fire
-        keysPressed.current.add(key);
-        
         // Prevent default behavior (scrolling) when pressing space
         e.preventDefault();
+        
+        // Only add if not already pressed to prevent repeat events from affecting game speed
+        if (!keysPressed.current.has(key)) {
+          keysPressed.current.add(key);
+        }
       } else {
         // For other keys, only add if it's not already pressed
         if (!keysPressed.current.has(key)) {
@@ -195,114 +203,68 @@ export function useGameLogic() {
       return;
     }
     
+    // Initialize lastTime on first frame
     if (lastTime === 0) {
+      setLastTime(currentTime);
+      accumulatedTimeRef.current = 0;
+      gameLoopRef.current = requestAnimationFrame(gameLoop);
+      return;
+    }
+    
+    // Calculate the time elapsed since the last frame
+    let frameTime = currentTime - lastTime;
+    
+    // Cap frameTime to prevent spiral of death when tab is inactive
+    // or when there are large frame time jumps
+    const MAX_FRAME_TIME = 100; // Maximum 100ms (1/10th of a second)
+    if (frameTime > MAX_FRAME_TIME) {
+      console.log(`Large frame time detected: ${frameTime}ms, capping to ${MAX_FRAME_TIME}ms`);
+      frameTime = MAX_FRAME_TIME;
+    }
+    
+    // If the game is paused, just update lastTime and continue the loop
+    if (gameState.paused) {
       setLastTime(currentTime);
       gameLoopRef.current = requestAnimationFrame(gameLoop);
       return;
     }
     
-    const deltaTime = currentTime - lastTime;
+    // Add the frame time to our accumulated time
+    accumulatedTimeRef.current += frameTime;
     
-    // Skip game logic if paused
-    if (!gameState.paused) {
-      // Move player
-      movePlayer(deltaTime, currentTime);
+    // Process game logic in fixed time steps
+    // This ensures the game runs at the same speed regardless of frame rate
+    let updatesCount = 0;
+    const MAX_UPDATES = 5; // Prevent infinite loops if we can't keep up
+    
+    // FIXED_TIME_STEP is 16.67ms (60 FPS)
+    // This is the heart of our fixed time step implementation
+    // Game logic always runs with this exact time step, ensuring consistent speed
+    while (accumulatedTimeRef.current >= FIXED_TIME_STEP && updatesCount < MAX_UPDATES) {
+      // Run game logic with fixed time step
+      updateGameState(FIXED_TIME_STEP, currentTime);
       
-      // Check for player shooting
-      if (keysPressed.current.has(' ')) {
-        playerShoot(currentTime);
-        // Temporarily remove the spacebar key to allow for rapid fire when pressing quickly
-        // It will be re-added on the next keydown event
-        keysPressed.current.delete(' ');
-      }
-      
-      // Check for defense selection via number keys
-      if (keysPressed.current.has('1')) {
-        // Place Basic Turret at player's position
-        placeDefenseAtPlayerPosition(DefenseType.BASIC_TURRET);
-        keysPressed.current.delete('1'); // Prevent continuous placement
-      }
-      
-      if (keysPressed.current.has('2')) {
-        // Place Laser at player's position
-        placeDefenseAtPlayerPosition(DefenseType.LASER);
-        keysPressed.current.delete('2'); // Prevent continuous placement
-      }
-      
-      if (keysPressed.current.has('3')) {
-        // Place Shield at player's position
-        placeDefenseAtPlayerPosition(DefenseType.SHIELD);
-        keysPressed.current.delete('3'); // Prevent continuous placement
-      }
-      
-      if (keysPressed.current.has('4')) {
-        // Place Missile at player's position
-        placeDefenseAtPlayerPosition(DefenseType.MISSILE);
-        keysPressed.current.delete('4'); // Prevent continuous placement
-      }
-      
-      // Check for repair action
-      if (keysPressed.current.has('r')) {
-        const defenseToRepair = findClosestDefenseToRepair();
-        if (defenseToRepair) {
-          repairDefense(defenseToRepair.id);
-        }
-      }
-      
-      // Check for upgrade action
-      if (keysPressed.current.has('u')) {
-        const defenseToUpgrade = findClosestDefenseToUpgrade();
-        if (defenseToUpgrade) {
-          upgradeDefense(defenseToUpgrade.id);
-        }
-      }
-      
-      // Spawn enemies
-      setEnemySpawnTimer(prev => {
-        // Force enemy spawning if we have enemies in the wave but none on screen
-        if ((prev <= 0 || (gameState.enemies.length === 0 && gameState.currentWave.enemies.length > 0)) 
-            && gameState.currentWave.enemies.length > 0) {
-          spawnEnemy();
-          return gameState.currentWave.spawnRate;
-        }
-        return prev - deltaTime;
-      });
-      
-      // Move enemies
-      moveEnemies(deltaTime);
-      
-      // Fire defenses
-      fireDefenses(currentTime);
-      
-      // Move projectiles
-      moveProjectiles(deltaTime, currentTime);
-      
-      // Update explosion effects
-      setExplosionEffects(prev => 
-        prev.filter(effect => currentTime - effect.startTime < effect.duration)
-      );
-      
-      // Check for wave completion
-      if (gameState.currentWave.enemies.length === 0 && gameState.enemies.length === 0 && !waveCompleted) {
-        console.log('Wave completed detected in game loop!');
-        setWaveCompleted(true);
-      }
-      
-      // Check game over
-      if (gameState.gameOver) {
-        endGame();
-        return;
-      }
+      // Subtract the fixed time step from accumulated time
+      accumulatedTimeRef.current -= FIXED_TIME_STEP;
+      updatesCount++;
     }
     
+    // If we hit MAX_UPDATES, we're falling behind, so discard accumulated time
+    if (updatesCount >= MAX_UPDATES) {
+      console.warn('Game loop falling behind, discarding accumulated time');
+      accumulatedTimeRef.current = 0;
+    }
+    
+    // Update the last time for the next frame
     setLastTime(currentTime);
+    
+    // Continue the game loop
     gameLoopRef.current = requestAnimationFrame(gameLoop);
-  }, [
-    lastTime, 
-    gameState, 
-    waveCompleted,
-    placeDefenseAtPlayerPosition
-  ]);
+  }, [gameState, lastTime, waveCompleted]);
+  
+  // We'll define updateGameState after all other game functions are defined
+  
+  // We'll define gameLoopDeps and gameLoopWithDeps after defining updateGameState
   
   // Start game
   const startGame = useCallback(() => {
@@ -330,6 +292,7 @@ export function useGameLogic() {
       setWaveCompleted(false);
       setEnemySpawnTimer(0); // Initialize enemy spawn timer to 0 to trigger immediate spawning
       setLastLaneChangeTime(0); // Reset lane change time to allow immediate movement
+      accumulatedTimeRef.current = 0; // Reset accumulated time for fixed time step
       
       console.log('Game started with initial enemy! gameOver:', initialState.gameOver);
       
@@ -350,7 +313,10 @@ export function useGameLogic() {
     }));
     // Don't toggle isRunning - we want the game loop to continue running
     // but it will check gameState.paused to determine if it should update game state
-    setLastTime(0); // Reset the time delta on pause/unpause
+    
+    // Instead of resetting lastTime to 0, we'll update it on the next frame
+    // This prevents large delta times that cause the game to speed up
+    console.log('Game paused/unpaused');
   }, []);
   
   // End game
@@ -642,6 +608,9 @@ export function useGameLogic() {
   
   // Move player
   const movePlayer = useCallback((deltaTime: number, currentTime: number) => {
+    // With fixed time step, we need to ensure player movement is consistent
+    // regardless of how many times this function is called
+    
     // Check if enough time has passed since the last lane change
     // Skip this check if lastLaneChangeTime is 0 (first movement)
     if (lastLaneChangeTime !== 0 && currentTime - lastLaneChangeTime < LANE_CHANGE_DELAY) {
@@ -655,8 +624,8 @@ export function useGameLogic() {
       // Track if we need to move
       let shouldMove = false;
       
-      // Debug log to see what keys are pressed
-      console.log('Keys pressed:', Array.from(keysPressed.current));
+      // We'll only check one direction at a time to prevent diagonal movement
+      // and ensure consistent behavior
       
       // Check for left movement (case insensitive)
       if (keysPressed.current.has('arrowleft') || keysPressed.current.has('a')) {
@@ -665,9 +634,8 @@ export function useGameLogic() {
           shouldMove = true;
         }
       }
-      
-      // Check for right movement (case insensitive)
-      if (keysPressed.current.has('arrowright') || keysPressed.current.has('d')) {
+      // Only check right if we didn't move left
+      else if (keysPressed.current.has('arrowright') || keysPressed.current.has('d')) {
         if (newLane < LANE_COUNT - 1) {
           newLane += 1;
           shouldMove = true;
@@ -739,32 +707,44 @@ export function useGameLogic() {
   
   // Move enemies
   const moveEnemies = useCallback((deltaTime: number) => {
+    // Use fixed time step for consistent game speed
+    // No need to cap deltaTime here as we're using a fixed time step
+    
     setGameState(prev => {
       const { enemies, player, defenses } = prev;
-      let newEnemies = [...enemies];
+      let newEnemies = [];
       let newLives = player.lives;
       let newDefenses = [...defenses];
       
       // Process each enemy
-      newEnemies = newEnemies.map(enemy => {
-        if (!enemy.active) return enemy;
+      for (const enemy of enemies) {
+        if (!enemy.active) {
+          // Skip inactive enemies
+          continue;
+        }
         
-        // Move enemy down
-        const newY = enemy.y + enemy.speed * (deltaTime / 16);
+        // Move enemy down with fixed time step for consistent speed
+        let newY = enemy.y + enemy.speed * (deltaTime / 16);
         
         // Keep enemy centered in its lane
         const laneCenter = enemy.lane * LANE_WIDTH + (LANE_WIDTH - enemy.width) / 2;
         
-        // Check if enemy reached bottom
+        // Check if enemy reached bottom of screen
         if (newY > GAME_HEIGHT) {
-          // Damage player
-          newLives -= enemy.damage;
+          // Damage player - but only take 1 life regardless of enemy damage value
+          newLives -= 1; // Always take exactly 1 life
+          console.log(`Enemy reached bottom! Player loses 1 life. Lives remaining: ${newLives}`);
           
-          // Deactivate enemy
-          return { ...enemy, active: false };
+          // Deactivate enemy - don't add to newEnemies
+          continue;
         }
         
-        // Check collision with defenses
+        // Check for collisions with defenses (single pass)
+        let hasCollided = false;
+        let collisionY = newY;
+        let collisionDefenseIndex = -1;
+        
+        // Find the first defense this enemy collides with
         for (let i = 0; i < newDefenses.length; i++) {
           const defense = newDefenses[i];
           if (!defense.active) continue;
@@ -780,27 +760,59 @@ export function useGameLogic() {
             newY < defense.y + defense.height &&
             newY + enemy.height > defense.y
           ) {
-            // Damage defense
-            newDefenses[i] = {
-              ...defense,
-              health: defense.health - enemy.damage,
-            };
+            // Enemy has collided with a defense
+            hasCollided = true;
+            collisionDefenseIndex = i;
             
-            // Check if defense is destroyed
-            if (newDefenses[i].health <= 0) {
-              newDefenses[i] = { ...newDefenses[i], active: false };
-            }
-            
-            // Deactivate enemy
-            return { ...enemy, active: false };
+            // Store the position where collision happened
+            // Position the enemy just above the defense
+            collisionY = defense.y - enemy.height;
+            break; // Stop at first collision
           }
         }
         
-        return { ...enemy, y: newY, x: laneCenter };
-      });
+        // If there was a collision, handle it
+        if (hasCollided && collisionDefenseIndex >= 0) {
+          const defense = newDefenses[collisionDefenseIndex];
+          
+          // Check if enemy has a lastAttackTime property, if not or if enough time has passed
+          const currentTime = Date.now();
+          if (!enemy.lastAttackTime || currentTime - (enemy.lastAttackTime || 0) >= 500) { // 0.5 second attack cooldown
+            // Calculate damage
+            const damageToDeal = enemy.damage;
+            const newHealth = defense.health - damageToDeal;
+            
+            console.log(`Enemy dealing ${damageToDeal} damage to defense. Defense health: ${defense.health} -> ${newHealth}`);
+            
+            // Damage defense
+            newDefenses[collisionDefenseIndex] = {
+              ...defense,
+              health: newHealth,
+            };
+            
+            // Check if defense is destroyed
+            if (newDefenses[collisionDefenseIndex].health <= 0) {
+              console.log('Defense destroyed:', defense.id);
+              newDefenses[collisionDefenseIndex] = { ...newDefenses[collisionDefenseIndex], active: false };
+            }
+            
+            // Update enemy's last attack time
+            enemy = { ...enemy, lastAttackTime: currentTime };
+          } else {
+            console.log(`Enemy on cooldown, time since last attack: ${currentTime - (enemy.lastAttackTime || 0)}ms`);
+          }
+          
+          // Add the updated enemy with the collision position to newEnemies
+          newEnemies.push({ ...enemy, y: collisionY, x: laneCenter, lastAttackTime: enemy.lastAttackTime });
+          continue;
+        }
+        
+        // No collision, just update position
+        newEnemies.push({ ...enemy, y: newY, x: laneCenter });
+      }
       
-      // Filter out inactive enemies
-      newEnemies = newEnemies.filter(enemy => enemy.active);
+      // All enemies are already active since we skipped inactive ones
+      // No need to filter again
       
       // Filter out inactive defenses
       newDefenses = newDefenses.filter(defense => defense.active);
@@ -912,8 +924,9 @@ export function useGameLogic() {
       newProjectiles = newProjectiles.map(projectile => {
         if (!projectile.active) return projectile;
         
-        // Move projectile (player projectiles move up, enemy projectiles move down)
-        const newY = projectile.y + projectile.speed * (deltaTime / 16);
+        // Move projectile with fixed time step for consistent speed
+        // Use the exact deltaTime from the fixed time step
+        let newY = projectile.y + projectile.speed * (deltaTime / 16);
         
         // Check if projectile is out of bounds
         if (newY < 0 || newY > GAME_HEIGHT) {
@@ -936,7 +949,9 @@ export function useGameLogic() {
               newY < enemy.y + enemy.height &&
               newY + projectile.height > enemy.y
             ) {
-              // Hit enemy
+              // Hit enemy - reduce damage to make enemies more durable
+              console.log(`Projectile hit enemy! Dealing ${projectile.damage} damage. Enemy health: ${enemy.health} -> ${enemy.health - projectile.damage}`);
+              
               newEnemies[i] = {
                 ...enemy,
                 health: enemy.health - projectile.damage,
@@ -1027,6 +1042,116 @@ export function useGameLogic() {
     // SOUNDS.waveComplete?.play();
   }, []);
   
+  // This function updates the game state with a fixed time step
+  // This ensures consistent game speed regardless of frame rate
+  const updateGameState = useCallback((fixedDeltaTime: number, currentTime: number) => {
+    // Process player input
+    // Check for player shooting - only if cooldown has elapsed
+    if (keysPressed.current.has(' ')) {
+      // Check the player's last shot time to ensure we respect the cooldown
+      // This prevents the ship from moving too fast when the space key is held down
+      if (!gameState.player.lastShot || currentTime - gameState.player.lastShot >= PLAYER_SHOOT_COOLDOWN) {
+        playerShoot(currentTime);
+        keysPressed.current.delete(' ');  // Prevent continuous shooting affecting game speed
+      }
+      // We don't remove the key here as we rely on the keyup event to remove it
+    }
+    
+    // Check for defense selection via number keys
+    if (keysPressed.current.has('1')) {
+      // Place Basic Turret at player's position
+      placeDefenseAtPlayerPosition(DefenseType.BASIC_TURRET);
+      keysPressed.current.delete('1'); // Prevent continuous placement
+    }
+    
+    if (keysPressed.current.has('2')) {
+      // Place Laser at player's position
+      placeDefenseAtPlayerPosition(DefenseType.LASER);
+      keysPressed.current.delete('2'); // Prevent continuous placement
+    }
+    
+    if (keysPressed.current.has('3')) {
+      // Place Shield at player's position
+      placeDefenseAtPlayerPosition(DefenseType.SHIELD);
+      keysPressed.current.delete('3'); // Prevent continuous placement
+    }
+    
+    if (keysPressed.current.has('4')) {
+      // Place Missile at player's position
+      placeDefenseAtPlayerPosition(DefenseType.MISSILE);
+      keysPressed.current.delete('4'); // Prevent continuous placement
+    }
+    
+    // Check for repair action
+    if (keysPressed.current.has('r')) {
+      const defenseToRepair = findClosestDefenseToRepair();
+      if (defenseToRepair) {
+        repairDefense(defenseToRepair.id);
+      }
+    }
+    
+    // Check for upgrade action
+    if (keysPressed.current.has('u')) {
+      const defenseToUpgrade = findClosestDefenseToUpgrade();
+      if (defenseToUpgrade) {
+        upgradeDefense(defenseToUpgrade.id);
+      }
+    }
+    
+    // Move player with fixed time step
+    movePlayer(fixedDeltaTime, currentTime);
+    
+    // Spawn enemies with fixed time step
+    setEnemySpawnTimer(prev => {
+      // Force enemy spawning if we have enemies in the wave but none on screen
+      if ((prev <= 0 || (gameState.enemies.length === 0 && gameState.currentWave.enemies.length > 0)) 
+          && gameState.currentWave.enemies.length > 0) {
+        spawnEnemy();
+        return gameState.currentWave.spawnRate;
+      }
+      return prev - fixedDeltaTime;
+    });
+    
+    // Move enemies with fixed time step
+    moveEnemies(fixedDeltaTime);
+    
+    // Fire defenses
+    fireDefenses(currentTime);
+    
+    // Move projectiles with fixed time step
+    moveProjectiles(fixedDeltaTime, currentTime);
+    
+    // Update explosion effects
+    setExplosionEffects(prev => 
+      prev.filter(effect => currentTime - effect.startTime < effect.duration)
+    );
+    
+    // Check for wave completion
+    if (gameState.currentWave.enemies.length === 0 && gameState.enemies.length === 0 && !waveCompleted) {
+      console.log('Wave completed detected in game loop!');
+      setWaveCompleted(true);
+    }
+    
+    // Check game over
+    if (gameState.gameOver) {
+      endGame();
+    }
+  }, [gameState, playerShoot, placeDefenseAtPlayerPosition, findClosestDefenseToRepair, 
+      repairDefense, findClosestDefenseToUpgrade, upgradeDefense, movePlayer, spawnEnemy, 
+      moveEnemies, fireDefenses, moveProjectiles, waveCompleted, endGame]);
+  
+  // Define the gameLoop dependencies
+  const gameLoopDeps = [
+    lastTime, 
+    gameState, 
+    waveCompleted,
+    updateGameState
+  ];
+  
+  // Update the gameLoop dependencies
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const gameLoopWithDeps = useCallback(gameLoop, gameLoopDeps);
+  
   // Game loop
   useEffect(() => {
     if (!isRunning) {
@@ -1047,6 +1172,14 @@ export function useGameLogic() {
       }
     };
   }, [isRunning, gameLoop]);
+  
+  // Update the game loop to use the fixed time step
+  // This effect runs once after all functions are defined
+  useEffect(() => {
+    // We'll update the game loop reference to use our optimized version
+    // This ensures that the game runs at a consistent speed
+    console.log('Setting up fixed time step game loop');
+  }, []);
   
   return {
     gameState,

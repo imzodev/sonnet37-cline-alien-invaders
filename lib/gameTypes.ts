@@ -61,6 +61,7 @@ export interface Enemy extends GameObject {
   speed: number;
   value: number; // Resources gained when destroyed
   damage: number; // Damage to player/defense when reaching bottom
+  lastAttackTime?: number; // Timestamp of last attack on a defense
 }
 
 export interface Defense extends GameObject {
@@ -349,7 +350,7 @@ export const ENEMY_STATS = {
     health: 30,
     speed: 1,
     value: 10,
-    damage: 1,
+    damage: 10, // Increased from 1 to 10
     width: 40,
     height: 40,
   },
@@ -357,7 +358,7 @@ export const ENEMY_STATS = {
     health: 20,
     speed: 2,
     value: 15,
-    damage: 1,
+    damage: 8, // Increased from 1 to 8
     width: 30,
     height: 30,
   },
@@ -365,7 +366,7 @@ export const ENEMY_STATS = {
     health: 100,
     speed: 0.5,
     value: 25,
-    damage: 2,
+    damage: 20, // Increased from 2 to 20
     width: 50,
     height: 50,
   },
@@ -373,7 +374,7 @@ export const ENEMY_STATS = {
     health: 50,
     speed: 1.5,
     value: 30,
-    damage: 3,
+    damage: 15, // Increased from 3 to 15
     width: 45,
     height: 45,
   },
