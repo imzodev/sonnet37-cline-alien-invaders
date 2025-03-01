@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { useGameLogic } from '@/lib/useGameLogic';
 import GameCanvas from './GameCanvas';
 import { DefenseType, DEFENSE_STATS, DIFFICULTY_LEVELS, setDifficulty } from '@/lib/gameTypes';
-import GameUI from './GameUI';
 import { GameOverModal, WaveCompletedModal } from './GameModals';
 import Leaderboard from './Leaderboard';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -30,6 +29,7 @@ const Game: React.FC = () => {
   const [selectedDifficulty, setSelectedDifficulty] = useState('normal');
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [modalKey, setModalKey] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const handleCanvasClick = (x: number, y: number) => {
     if (gameState.selectedDefense) {
@@ -115,6 +115,11 @@ const Game: React.FC = () => {
       .split('_')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+  };
+
+  // Toggle mobile menu
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
   };
 
   return (
@@ -213,10 +218,10 @@ const Game: React.FC = () => {
         </motion.div>
       ) : (
         <div className="w-full max-w-6xl">
-          {/* Main game container with sidebar layout */}
-          <div className="flex flex-col md:flex-row gap-4">
+          {/* Main game container with sidebar layout - desktop version remains unchanged */}
+          <div className="hidden md:flex md:flex-row gap-4">
             {/* Left side - Game info and controls */}
-            <div className="w-full md:w-64 lg:w-80 order-1 md:order-1">
+            <div className="w-full md:w-64 lg:w-80 order-1">
               {/* Game stats */}
               <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 mb-3 border border-gray-700/50 shadow-lg">
                 <div className="flex flex-col text-white">
@@ -329,7 +334,7 @@ const Game: React.FC = () => {
             </div>
             
             {/* Right side - Game canvas */}
-            <div className="w-full md:flex-1 order-2 md:order-2">
+            <div className="w-full md:flex-1 order-2">
               <div className="border border-gray-700/50 rounded-lg overflow-hidden shadow-2xl">
                 <GameCanvas 
                   gameState={gameState} 
@@ -338,6 +343,169 @@ const Game: React.FC = () => {
                 />
               </div>
             </div>
+          </div>
+
+          {/* MOBILE VERSION - Complete redesign with bottom drawer and minimalistic UI */}
+          <div className="flex flex-col md:hidden">
+            {/* Mobile Top Bar */}
+            <div className="flex justify-between items-center bg-gray-900/90 p-2 rounded-t-lg border-b border-gray-700 backdrop-blur-sm mb-2">
+              <div className="flex items-center space-x-2">
+                <span className="font-bold text-lg text-white">Score: <span className="text-blue-400">{gameState.score}</span></span>
+              </div>
+              <div className="flex space-x-2">
+                <div className="bg-gray-800 px-2 py-1 rounded-md flex items-center">
+                  <span className="text-yellow-400 font-bold">{gameState.player.resources}</span>
+                  <span className="text-yellow-600 ml-1">💰</span>
+                </div>
+                <div className="bg-gray-800 px-2 py-1 rounded-md flex items-center">
+                  <span className="text-red-500 font-bold">{gameState.player.lives}</span>
+                  <span className="text-red-600 ml-1">❤️</span>
+                </div>
+                <button
+                  className="bg-gray-700 w-10 h-10 rounded-full flex items-center justify-center"
+                  onClick={pauseGame}
+                >
+                  {gameState.paused ? 
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-green-400">
+                      <path fillRule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clipRule="evenodd" />
+                    </svg>
+                    : 
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-white">
+                      <path fillRule="evenodd" d="M6.75 5.25a.75.75 0 01.75-.75H9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V5.25zm7.5 0A.75.75 0 0115 4.5h1.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V5.25z" clipRule="evenodd" />
+                    </svg>
+                  }
+                </button>
+              </div>
+            </div>
+            
+            {/* Mobile Game Canvas Container */}
+            <div className="relative">
+              <div className="border border-gray-700/50 rounded-lg overflow-hidden shadow-2xl">
+                <GameCanvas 
+                  gameState={gameState} 
+                  onCanvasClick={handleCanvasClick}
+                  explosionEffects={explosionEffects}
+                />
+              </div>
+              
+              {/* Wave info pill - floating over the game */}
+              <div className={`absolute top-2 left-2 px-3 py-1 rounded-full text-white text-sm flex items-center space-x-2 ${
+                gameState.currentWave.bossWave ? 'bg-red-900/80 border border-red-500/50' : 'bg-gray-800/80 border border-gray-700/50'
+              }`}>
+                <span className="font-bold">Wave {gameState.waveNumber}</span>
+                {gameState.currentWave.bossWave && (
+                  <span className="text-red-400 animate-pulse">BOSS</span>
+                )}
+              </div>
+            </div>
+            
+            {/* Mobile Bottom Bar - Always visible with essential controls */}
+            <div className="bg-gray-900/90 p-3 rounded-b-lg border-t border-gray-700 backdrop-blur-sm mt-2">
+              {/* Defense selection as horizontal scrollable bar */}
+              <div className="flex overflow-x-auto pb-2 hide-scrollbar">
+                {Object.values(DefenseType).map((type, index) => {
+                  const stats = DEFENSE_STATS[type];
+                  const isSelected = gameState.selectedDefense === type;
+                  const canAfford = gameState.player.resources >= stats.cost;
+                  const keyNumber = index + 1;
+
+                  return (
+                    <button
+                      key={type}
+                      className={`relative p-2 rounded-lg transition-all flex-shrink-0 mr-2 w-16 ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-blue-600 to-blue-700 shadow-lg transform scale-105'
+                          : canAfford
+                          ? 'bg-gray-700 hover:bg-gray-600'
+                          : 'bg-gray-800 opacity-50 cursor-not-allowed'
+                      } border ${isSelected ? 'border-blue-400' : 'border-gray-600'}`}
+                      onClick={() => canAfford && selectDefense(isSelected ? null : type)}
+                      disabled={!canAfford}
+                    >
+                      <div className="flex flex-col items-center">
+                        <div
+                          className={`w-8 h-8 rounded-md ${
+                            type === DefenseType.BASIC_TURRET
+                              ? 'bg-green-500'
+                              : type === DefenseType.LASER
+                              ? 'bg-blue-500'
+                              : type === DefenseType.SHIELD
+                              ? 'bg-yellow-500'
+                              : 'bg-red-500'
+                          } mb-1`}
+                        />
+                        <div className="text-xs text-white font-medium">({keyNumber})</div>
+                        <div className="text-yellow-400 text-xs mt-1 bg-gray-900/50 px-2 py-1 rounded-full inline-block">{stats.cost}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Mobile bottom drawer toggle */}
+              <div className="flex justify-center -mt-1">
+                <button 
+                  onClick={toggleMobileMenu}
+                  className="w-12 h-5 bg-gray-800 rounded-t-none rounded-b-lg flex justify-center items-center"
+                >
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className={`h-4 w-4 text-gray-400 transition-transform ${mobileMenuOpen ? 'rotate-180' : ''}`} 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={mobileMenuOpen ? "M19 9l-7 7-7-7" : "M5 15l7-7 7 7"} />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            {/* Mobile Drawer - Expandable additional info */}
+            <AnimatePresence>
+              {mobileMenuOpen && (
+                <motion.div 
+                  className="bg-gray-900 border-t border-gray-700 rounded-b-lg p-3 shadow-lg"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Wave information */}
+                    <div className="bg-gray-800 rounded-lg p-3 text-sm">
+                      <h3 className="text-white font-bold mb-1 text-sm">Current Wave</h3>
+                      <p className="text-xs text-gray-300">
+                        {gameState.currentWave.name}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Enemies: {gameState.currentWave.enemies.length + gameState.enemies.length}
+                      </p>
+                    </div>
+                    
+                    {/* Controls summary */}
+                    <div className="bg-gray-800 rounded-lg p-3 text-sm">
+                      <h3 className="text-white font-bold mb-1 text-sm">Controls</h3>
+                      <p className="text-xs text-gray-300">
+                        ←→: Move ship<br />
+                        Tap center: Shoot<br />
+                        1-4: Select defense
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Quick buttons */}
+                  <div className="grid grid-cols-2 gap-3 mt-3">
+                    <button className="bg-blue-600 py-2 px-3 rounded-lg text-white text-sm font-medium">
+                      Upgrade (U)
+                    </button>
+                    <button className="bg-green-600 py-2 px-3 rounded-lg text-white text-sm font-medium">
+                      Repair (R)
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       )}
@@ -371,6 +539,17 @@ const Game: React.FC = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Add global CSS for hiding scrollbars while preserving functionality */}
+      <style jsx global>{`
+        .hide-scrollbar {
+          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none; /* IE and Edge */
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none; /* Chrome, Safari, Opera */
+        }
+      `}</style>
     </div>
   );
 };
