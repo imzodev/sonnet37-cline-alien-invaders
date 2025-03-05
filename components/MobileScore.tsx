@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface ScoreProps {
+interface MobileScoreProps {
   score: number;
   resources: number;
   lives: number;
@@ -8,35 +8,9 @@ interface ScoreProps {
   pauseGame: () => void;
 }
 
-const Score: React.FC<ScoreProps> = ({ score, resources, lives, paused, pauseGame }) => {
+const MobileScore: React.FC<MobileScoreProps> = ({ score, resources, lives, paused, pauseGame }) => {
   return (
     <>
-      {/* Desktop Version */}
-      <div className="hidden md:block bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-4 mb-3 border border-gray-700/50 shadow-lg">
-        <div className="flex flex-col text-white">
-          <div className="flex justify-between items-center mb-3">
-            <div className="font-bold text-xl">Score: <span className="text-blue-400">{score}</span></div>
-            <button
-              className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded-md text-sm transition-colors"
-              onClick={pauseGame}
-            >
-              {paused ? 'Resume' : 'Pause'}
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-gray-700/50 p-2 rounded-lg">
-              <span className="text-gray-400">Resources:</span>
-              <span className="font-bold text-yellow-400 ml-1">{resources}</span>
-            </div>
-            <div className="bg-gray-700/50 p-2 rounded-lg">
-              <span className="text-gray-400">Lives:</span>
-              <span className="font-bold text-red-500 ml-1">{lives}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Mobile Version */}
       <div className="md:hidden flex justify-between items-center bg-gray-900/90 p-2 rounded-t-lg border-b border-gray-700 backdrop-blur-sm mb-2">
         <div className="flex items-center space-x-2">
@@ -71,4 +45,4 @@ const Score: React.FC<ScoreProps> = ({ score, resources, lives, paused, pauseGam
   );
 };
 
-export default Score;
+export default MobileScore;
