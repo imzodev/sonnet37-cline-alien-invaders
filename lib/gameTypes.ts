@@ -316,7 +316,7 @@ export const DEFENSE_STATS = {
     cost: 200,
     damage: 5, // Per frame
     range: 200,
-    cooldown: 0, // Continuous
+    cooldown: 300, // Increased to 300ms to reduce firing rate
     width: 40,
     height: 60,
     health: 80,
