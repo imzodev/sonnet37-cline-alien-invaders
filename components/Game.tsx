@@ -30,7 +30,6 @@ const Game: React.FC = () => {
   const [selectedDifficulty, setSelectedDifficulty] = useState('normal');
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [modalKey, setModalKey] = useState(0);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   const handleCanvasClick = (x: number, y: number) => {
     if (gameState.selectedDefense) {
@@ -116,11 +115,6 @@ const Game: React.FC = () => {
       .split('_')
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
-  };
-
-  // Toggle mobile menu
-  const toggleMobileMenu = () => {
-    setMobileMenuOpen(!mobileMenuOpen);
   };
 
   return (
